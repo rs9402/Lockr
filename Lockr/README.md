@@ -1,11 +1,11 @@
-
+```
 ██╗      ██████╗  ██████╗██╗  ██╗██████╗ 
 ██║     ██╔═══██╗██╔════╝██║ ██╔╝██╔══██╗
 ██║     ██║   ██║██║     █████╔╝ ██████╔╝
 ██║     ██║   ██║██║     ██╔═██╗ ██╔══██╗
 ███████╗╚██████╔╝╚██████╗██║  ██╗██║  ██║
 ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝
-                                         
+```                                      
 Lockr is a lightweight, secure, and offline cryptography utility made for power users who want full control over their credentials. No fluff, just cryptography that works.
 Built with a minimalist dark interface, it provides essential cryptography tools without unnecessary complexity.
 
