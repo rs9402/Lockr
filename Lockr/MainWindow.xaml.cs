@@ -406,7 +406,7 @@ namespace Lockr
                     word = spicyWord.ToString();
                 }
 
-                // Generate the random number suffix (0-99)
+                // Generate the random number suffix
                 rng.GetBytes(randomNumberBytes);
                 int numberSuffix = Math.Abs(BitConverter.ToInt32(randomNumberBytes, 0)) % 100;
 
