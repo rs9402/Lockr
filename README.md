@@ -17,7 +17,7 @@ Built with a minimalist dark interface, it provides essential cryptography tools
 - Hash text using SHA-256 with optional salt and BASE64 encoding
 - Encrypt and decrypt data with multiple input/output format options using the AES256 GCM algorithm
 - Copy results to clipboard instantly with a single click
-- Slick, clean UI that doesn't suck
+- Slick, clean UI
 
 ## System Requirements
 - Windows 7/8/10/11
@@ -73,4 +73,4 @@ Stay secure, stay in control. LOCKR is designed by a security enthusiast, for se
 Because security shouldn't be complicated, and your data should remain yours.
 
 Made by someone who gets it.
-- RS9402
+- RS9402 (aka SS)
