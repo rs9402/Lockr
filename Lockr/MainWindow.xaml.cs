@@ -5,6 +5,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls; 
+using Konscious.Security.Cryptography;
 using System;
 using System.Linq;
 
@@ -24,6 +26,15 @@ namespace Lockr
             UpdatePasswordStrengthIndicator();
         }
 
+        //new - kdf helper
+        private byte[] DeriveKeyPbkdf2(string password, byte[] salt, int iterations, int keyLength)
+        {
+            using (var deriveBytes = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256))
+            {
+                return deriveBytes.GetBytes(keyLength);
+            }
+        }
+
         private void LoadWordlist()
         {
             string wordlistFileName = "Wordlist.txt";
@@ -31,7 +42,6 @@ namespace Lockr
 
             try
             {
-                // First try to load external file (for customization)
                 if (File.Exists(wordlistPath))
                 {
                     LoadWordlistFromFile(wordlistPath);
@@ -76,7 +86,6 @@ namespace Lockr
         {
             try
             {
-                // Get embedded resource stream (adjust namespace to match your project)
                 using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Lockr.Wordlist.txt"))
                 {
                     if (stream != null)
@@ -214,6 +223,175 @@ namespace Lockr
             }
         }
 
+        //new-kdf
+        private void DeriveKeyButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string password = KdfPasswordInput.Text;
+                string salt = KdfSaltInput.Text;
+                int keyLength;
+
+                if (string.IsNullOrEmpty(password))
+                {
+                    StatusText.Text = "Error: Password cannot be empty.";
+                    MessageBox.Show("Please enter a password or passphrase.", "Input Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    KdfOutput.Text = string.Empty;
+                    return;
+                }
+
+                if (!int.TryParse(KdfKeyLength.Text, out keyLength) || keyLength <= 0)
+                {
+                    StatusText.Text = "Error: Invalid key length.";
+                    MessageBox.Show("Please enter a valid positive integer for key length.", "Input Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    KdfOutput.Text = string.Empty;
+                    return;
+                }
+
+                byte[] saltBytes;
+                if (string.IsNullOrEmpty(salt))
+                {
+                    // Generate a random salt if none is provided
+                    saltBytes = GenerateRandomBytes(16);
+                    KdfSaltInput.Text = Convert.ToBase64String(saltBytes); // Display generated salt
+                }
+                else
+                {
+                    saltBytes = Encoding.UTF8.GetBytes(salt);
+                }
+
+                byte[] derivedKey = null;
+
+                if (Pbkdf2Radio.IsChecked == true)
+                {
+                    int iterations;
+                    if (!int.TryParse(Pbkdf2Iterations.Text, out iterations) || iterations <= 0)
+                    {
+                        StatusText.Text = "Error: Invalid PBKDF2 iterations.";
+                        MessageBox.Show("Please enter a valid positive integer for PBKDF2 iterations.", "Input Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        KdfOutput.Text = string.Empty;
+                        return;
+                    }
+                    derivedKey = DeriveKeyPbkdf2(password, saltBytes, iterations, keyLength);
+                    StatusText.Text = "PBKDF2 key derived successfully.";
+                }
+                else if (Argon2Radio.IsChecked == true)
+                {
+                    int memory = 32;    // Default value of 32 MB if parsing fails
+                    int time = 4;       // Default value of 4 iterations if parsing fails
+                    int parallelism = 1; // Default value of 1 thread if parsing fails
+
+                    // Safely parse memory parameter
+                    if (!int.TryParse(Argon2Memory.Text, out memory) || memory <= 0)
+                    {
+                        StatusText.Text = "Warning: Using default memory value (32 MB).";
+                        memory = 32; // Default to 32 MB
+                    }
+
+                    // Safely parse time parameter
+                    if (!int.TryParse(Argon2Time.Text, out time) || time <= 0)
+                    {
+                        StatusText.Text = "Warning: Using default time value (4 iterations).";
+                        time = 4; // Default to 4 iterations
+                    }
+
+                    // Safely parse parallelism parameter
+                    if (!int.TryParse(Argon2Parallelism.Text, out parallelism) || parallelism <= 0)
+                    {
+                        StatusText.Text = "Warning: Using default parallelism value (1 thread).";
+                        parallelism = 1; // Default to 1 thread
+                    }
+
+                    try
+                    {
+                        derivedKey = DeriveKeyArgon2(password, saltBytes, memory, time, parallelism, keyLength);
+                        StatusText.Text = "Argon2 key derived successfully.";
+                    }
+                    catch (Exception ex)
+                    {
+                        StatusText.Text = "Error deriving Argon2 key.";
+                        MessageBox.Show($"Argon2 error: {ex.Message}\n\nTry lower memory values (8-64 MB) and ensure all parameters are valid.",
+                            "Argon2 Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        KdfOutput.Text = string.Empty;
+                        return;
+                    }
+                }
+                else
+                {
+                    StatusText.Text = "Error: KDF algorithm not selected.";
+                    MessageBox.Show("Please select a KDF algorithm.", "Selection Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    KdfOutput.Text = string.Empty;
+                    return;
+                }
+
+                KdfOutput.Text = Convert.ToBase64String(derivedKey);
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Error deriving key.";
+                MessageBox.Show($"An unexpected error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                KdfOutput.Text = string.Empty;
+            }
+        }
+
+        private void CopyKdfOutputButton_Click(object sender, RoutedEventArgs e)
+        {
+            CopyTextToClipboard(KdfOutput.Text, "Derived Key");
+        }
+        //new
+
+        private byte[] DeriveKeyArgon2(string password, byte[] salt, int memory, int time, int parallelism, int keyLength)
+        {
+            try
+            {
+                // Validate inputs with reasonable constraints
+                if (memory <= 0)
+                    memory = 8; // Default to 8MB if invalid
+                else if (memory > 64)
+                    memory = 64; // Cap at 64MB as per error message suggestion
+
+                if (time <= 0)
+                    time = 2; // Default to 2 iterations if invalid
+                else if (time > 10)
+                    time = 10; // Cap at reasonable maximum
+
+                if (parallelism <= 0)
+                    parallelism = 1; // Default to 1 thread if invalid
+                else if (parallelism > Environment.ProcessorCount)
+                    parallelism = Environment.ProcessorCount; // Cap at available processors
+
+                // Create salt if null or empty
+                if (salt == null || salt.Length == 0)
+                    salt = GenerateRandomBytes(16);
+
+                using (var argon2 = new Konscious.Security.Cryptography.Argon2id(Encoding.UTF8.GetBytes(password)))
+                {
+                    argon2.Salt = salt;
+                    argon2.MemorySize = memory * 1024; // Convert MB to KB
+                    argon2.Iterations = time;
+                    argon2.DegreeOfParallelism = parallelism;
+
+                    return argon2.GetBytes(keyLength);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the specific error for debugging
+                Console.WriteLine($"Argon2 error: {ex.Message}");
+                // Re-throw to be caught by the calling code
+                throw new Exception($"Argon2 key derivation failed: {ex.Message}", ex);
+            }
+        }
+
+        private void KdfAlgorithm_Checked(object sender, RoutedEventArgs e)
+        {
+            Pbkdf2Params.Visibility = Pbkdf2Radio.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            Argon2Params.Visibility = Argon2Radio.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        // /new
+
+
         private void HashPassphraseButton_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -291,7 +469,7 @@ namespace Lockr
                     string filePath = dlg.FileName;
                     LoadWordlistFromFile(filePath);
 
-                    // Enable the passphrase controls if they were disabled
+
                     if (!GeneratePassphraseButton.IsEnabled)
                     {
                         GeneratePassphraseButton.IsEnabled = true;
