@@ -16,6 +16,7 @@ Built with a minimalist dark interface, it provides essential cryptography tools
 - Create secure passphrases coupled with a random number using wordlists (Default is EFF Long Wordlist with 7776 words, or use your own)
 - Hash text using SHA-256 with optional salt and BASE64 encoding
 - Encrypt and decrypt data with multiple input/output format options using the AES256 GCM algorithm
+- KDF through PBKD2 and Argon2
 - Copy results to clipboard instantly with a single click
 - Slick, clean UI
 
@@ -50,6 +51,13 @@ Built with a minimalist dark interface, it provides essential cryptography tools
 - Enter your encryption key
 - Choose operation and formats
 - Process your data
+
+5. KDF
+- Select the KDF tab
+- Enter your passphrase to derive
+- Choose your desired algorithm
+- Optionally, change the amount of iterations or final key length
+- Derive key
 
 ---
 
