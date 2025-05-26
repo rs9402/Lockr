@@ -4,11 +4,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
-using System.Windows.Input;
-using System.Windows.Controls; 
+using System.Windows.Controls;
 using Konscious.Security.Cryptography;
 using System;
 using System.Linq;
+using Zxcvbn;
+using System.Windows.Input;
 
 namespace Lockr
 {
@@ -212,14 +213,21 @@ namespace Lockr
                     PassphraseSeparator.Text = separator;
                 }
 
-                GeneratedPassphraseOutput.Text = GenerateRandomPassphrase(wordCount, separator);
+                string generatedPassphrase = GenerateRandomPassphrase(wordCount, separator);
+                GeneratedPassphraseOutput.Text = generatedPassphrase;
                 StatusText.Text = "Passphrase generated successfully.";
+
+                // NEW: Call the update method for passphrase strength and entropy
+                UpdatePassphraseStrengthIndicator(generatedPassphrase);
+
             }
             catch (Exception ex)
             {
                 StatusText.Text = "Error generating passphrase.";
                 MessageBox.Show($"An unexpected error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 GeneratedPassphraseOutput.Text = string.Empty;
+                // Reset indicator on error
+                UpdatePassphraseStrengthIndicator(string.Empty);
             }
         }
 
@@ -649,35 +657,89 @@ namespace Lockr
                 PasswordStrengthLabel.Text = "Very Strong";
                 PasswordStrengthBar.Foreground = System.Windows.Media.Brushes.LimeGreen;
             }
+
+
+            if (!string.IsNullOrEmpty(password))
+            {
+                var result = Zxcvbn.Core.EvaluatePassword(password);
+                double entropy = result.GuessesLog10 * Math.Log2(10);
+                PasswordEntropyLabel.Text = $"Entropy: {entropy:F2} bits";
+            }
+            else
+            {
+                PasswordEntropyLabel.Text = "Entropy: 0.00 bits";
+            }
+        }
+
+        private void UpdatePassphraseStrengthIndicator(string passphrase)
+        {
+            int score = CalculatePasswordStrength(passphrase);
+            PassphraseStrengthBar.Value = score;
+
+            if (score < 35)
+            {
+                PassphraseStrengthLabel.Text = "Very Weak";
+                PassphraseStrengthBar.Foreground = System.Windows.Media.Brushes.Red;
+            }
+            else if (score < 50)
+            {
+                PassphraseStrengthLabel.Text = "Weak";
+                PassphraseStrengthBar.Foreground = System.Windows.Media.Brushes.OrangeRed;
+            }
+            else if (score < 75)
+            {
+                PassphraseStrengthLabel.Text = "Medium";
+                PassphraseStrengthBar.Foreground = System.Windows.Media.Brushes.Orange;
+            }
+            else if (score < 90)
+            {
+                PassphraseStrengthLabel.Text = "Strong";
+                PassphraseStrengthBar.Foreground = System.Windows.Media.Brushes.YellowGreen;
+            }
+            else
+            {
+                PassphraseStrengthLabel.Text = "Very Strong";
+                PassphraseStrengthBar.Foreground = System.Windows.Media.Brushes.LimeGreen;
+            }
+
+            // Update entropy label (already exists, but ensuring context)
+            if (!string.IsNullOrEmpty(passphrase))
+            {
+                var result = Zxcvbn.Core.EvaluatePassword(passphrase);
+                double entropy = result.GuessesLog10 * Math.Log2(10);
+                PassphraseEntropyLabel.Text = $"Entropy: {entropy:F2} bits";
+            }
+            else
+            {
+                PassphraseEntropyLabel.Text = "Entropy: 0.00 bits";
+            }
         }
 
         private int CalculatePasswordStrength(string password)
         {
             if (string.IsNullOrEmpty(password)) return 0;
 
+            var result = Zxcvbn.Core.EvaluatePassword(password);
+
             int score = 0;
-            int length = password.Length;
-
-            if (length >= 8) score += 10;
-            if (length >= 12) score += 15;
-            if (length >= 16) score += 15;
-
-            bool hasLower = password.Any(char.IsLower);
-            bool hasUpper = password.Any(char.IsUpper);
-            bool hasDigit = password.Any(char.IsDigit);
-            bool hasSymbol = password.Any(c => !char.IsLetterOrDigit(c));
-
-            if (hasLower) score += 10;
-            if (hasUpper) score += 15;
-            if (hasDigit) score += 15;
-            if (hasSymbol) score += 20;
-
-            int typesCount = (hasLower ? 1 : 0) + (hasUpper ? 1 : 0) + (hasDigit ? 1 : 0) + (hasSymbol ? 1 : 0);
-            if (typesCount >= 3 && length >= 8) score += 5;
-            if (typesCount == 4 && length >= 12) score += 5;
-
-            if (HasRepeatingChars(password, 3)) score -= 5;
-            if (HasSequentialChars(password, 3)) score -= 5;
+            switch (result.Score)
+            {
+                case 0:
+                    score = 15; // Very Weak
+                    break;
+                case 1:
+                    score = 40; // Weak
+                    break;
+                case 2:
+                    score = 65; // Medium
+                    break;
+                case 3:
+                    score = 80; // Strong
+                    break;
+                case 4:
+                    score = 100; // Very Strong
+                    break;
+            }
 
             return Math.Max(0, Math.Min(score, 100));
         }
@@ -755,7 +817,6 @@ namespace Lockr
                     return;
                 }
 
-                // Process input based on selected format
                 byte[] inputBytes;
                 try
                 {
@@ -877,7 +938,7 @@ namespace Lockr
             position += nonce.Length;
 
             // Encrypt using AES-GCM
-            using (AesGcm aesGcm = new AesGcm(key))
+            using (AesGcm aesGcm = new AesGcm(key, 128))
             {
                 byte[] ciphertext = new byte[plaintext.Length];
                 byte[] tag = new byte[16]; // AES-GCM uses a 16-byte authentication tag
@@ -939,7 +1000,7 @@ namespace Lockr
 
             // Decrypt
             byte[] plaintext = new byte[ciphertextLength];
-            using (AesGcm aesGcm = new AesGcm(key))
+            using (AesGcm aesGcm = new AesGcm(key, 128))
             {
                 aesGcm.Decrypt(nonce, ciphertext, tag, plaintext);
             }

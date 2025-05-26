@@ -385,6 +385,9 @@
                             <ProgressBar x:Name="PasswordStrengthBar" Minimum="0" Maximum="100" Value="0" Height="15"/>
                             <TextBlock x:Name="PasswordStrengthLabel" Text="Weak" HorizontalAlignment="Center" FontWeight="SemiBold" 
                                        Margin="0,5,0,0" FontSize="12" Foreground="#FFD32F2F"/>
+                            <TextBlock x:Name="PasswordEntropyLabel" Text="Entropy: 0.00 bits" HorizontalAlignment="Center" FontWeight="SemiBold"
+                                        Margin="0,5,0,0" FontSize="12" Foreground="#FFCCCCCC"/>
+
 
                         </StackPanel>
                     </ScrollViewer>
@@ -446,6 +449,13 @@
 
                             <Button x:Name="CopyPassphraseButton" Content="COPY TO CLIPBOARD" Click="CopyPassphraseButton_Click" 
                                     HorizontalAlignment="Right" Width="150"/>
+                            <Label Content="Passphrase Strength:" FontWeight="SemiBold" Margin="5,20,5,2"/>
+                            <ProgressBar x:Name="PassphraseStrengthBar" Minimum="0" Maximum="100" Value="0" Height="15"/>
+                            <TextBlock x:Name="PassphraseStrengthLabel" Text="Weak" HorizontalAlignment="Center" FontWeight="SemiBold"
+                                    Margin="0,5,0,0" FontSize="12" Foreground="#FFD32F2F"/>
+
+                            <TextBlock x:Name="PassphraseEntropyLabel" Text="Entropy: 0.00 bits" HorizontalAlignment="Center" FontWeight="SemiBold"
+                                    Margin="0,15,0,0" FontSize="12" Foreground="#FFCCCCCC"/>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
