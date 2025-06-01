@@ -938,7 +938,7 @@ namespace Lockr
             position += nonce.Length;
 
             // Encrypt using AES-GCM
-            using (AesGcm aesGcm = new AesGcm(key, 128))
+            using (AesGcm aesGcm = new AesGcm(key))
             {
                 byte[] ciphertext = new byte[plaintext.Length];
                 byte[] tag = new byte[16]; // AES-GCM uses a 16-byte authentication tag
